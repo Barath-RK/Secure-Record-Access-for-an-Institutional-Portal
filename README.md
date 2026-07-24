@@ -1,4 +1,3 @@
-```markdown
 # 🔐 Secure Record Access Portal
 
 <p align="center">
