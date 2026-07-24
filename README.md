@@ -117,11 +117,7 @@ This project implements **defense-in-depth** security:
 
 ---
 
-## ✨ Features
 
-<p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=18&duration=2000&pause=500&color=F97316&center=true&vCenter=true&width=400&lines=⚡+Enterprise-Grade+Features" alt="Features Animation" />
-</p>
 
 ### 🔐 Authentication & Authorization
 
