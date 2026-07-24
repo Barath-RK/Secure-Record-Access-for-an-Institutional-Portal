@@ -61,11 +61,7 @@
 
 ---
 
-## 📌 Overview
 
-<p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=20&duration=2000&pause=500&color=00C853&center=true&vCenter=true&width=500&lines=🚀+Production-Ready+Security+Demo" alt="Overview Animation" />
-</p>
 
 **Secure Record Access Portal** is a comprehensive web application demonstrating enterprise-grade security practices in modern web development. This project showcases how to build secure authentication systems, implement role-based access control, and protect sensitive data from common web vulnerabilities.
 
@@ -416,11 +412,6 @@ Response: Only own records returned
 
 ---
 
-## 🛠️ Technology Stack
-
-<p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=18&duration=2000&pause=500&color=6C63FF&center=true&vCenter=true&width=400&lines=⚡+Modern+Technology+Stack" alt="Tech Stack Animation" />
-</p>
 
 ### Backend Technologies
 
@@ -552,13 +543,7 @@ Open browser: http://localhost:5000
 
 ---
 
-## 📖 Usage Guide
 
-### Getting Started
-
-<p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=18&duration=2000&pause=500&color=00C853&center=true&vCenter=true&width=400&lines=🚀+Quick+Start+Guide" alt="Usage Animation" />
-</p>
 
 ### User Actions
 
