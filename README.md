@@ -64,6 +64,8 @@
 
 
 **Secure Record Access Portal** is a comprehensive web application demonstrating enterprise-grade security practices in modern web development. This project showcases how to build secure authentication systems, implement role-based access control, and protect sensitive data from common web vulnerabilities.
+
+
 Video Link - https://drive.google.com/file/d/1jbFxKVdZ3xwww5oDmx9zvDjrlR87uu-J/view?usp=drivesdk
 ### 🎯 Core Purpose
 
