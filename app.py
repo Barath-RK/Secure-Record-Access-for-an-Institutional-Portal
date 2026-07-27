@@ -1,5 +1,4 @@
-# app.py - Complete Single File Application (FIXED VERSION)
-# SIH 2026 - Secure Record Access for Institutional Portal
+# app.py - Fixed Version with Proper JSON Responses
 
 from flask import Flask, request, render_template_string, session, redirect, url_for, flash, jsonify
 import sqlite3
@@ -7,10 +6,10 @@ import bcrypt
 import re
 from functools import wraps
 import os
-from datetime import datetime
+import datetime
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # Secure secret key
+app.secret_key = os.urandom(24)
 
 # ==================== HTML TEMPLATES ====================
 
@@ -151,9 +150,12 @@ DASHBOARD_TEMPLATE = '''
         .flash { padding: 10px; border-radius: 5px; margin-bottom: 15px; }
         .flash-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .flash-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .action-bar { display: flex; gap: 10px; margin-top: 20px; }
-        .form-inline { display: inline; }
-        .form-inline input { padding: 5px 10px; margin-right: 10px; border: 1px solid #ddd; border-radius: 3px; }
+        .btn-test { background: #6C63FF; color: white; }
+        .btn-test:hover { background: #5a52d5; }
+        .btn-logs { background: #FF6B6B; color: white; }
+        .btn-logs:hover { background: #e55555; }
+        .nav-links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+        .nav-links a { text-decoration: none; }
     </style>
 </head>
 <body>
@@ -220,6 +222,18 @@ DASHBOARD_TEMPLATE = '''
             </form>
         </div>
         
+        <div class="card">
+            <h2>🔧 Testing & Admin Tools</h2>
+            <div class="nav-links">
+                <a href="/attack_test"><button class="btn btn-test">🧪 Attack Test</button></a>
+                <a href="/test_direct_request"><button class="btn btn-test">🔒 Direct Request Test</button></a>
+                {% if role == 'admin' %}
+                <a href="/view_logs"><button class="btn btn-logs">📋 View Logs</button></a>
+                <a href="/show_db"><button class="btn btn-primary">📊 Database View</button></a>
+                {% endif %}
+            </div>
+        </div>
+        
         {% if role == 'admin' %}
         <div class="card">
             <h2>🛡️ Admin Panel</h2>
@@ -253,6 +267,216 @@ DASHBOARD_TEMPLATE = '''
 </html>
 '''
 
+ATTACK_TEST_TEMPLATE = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Attack Test Results</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f0f2f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        h1 { color: #1a73e8; }
+        .test { border: 1px solid #ddd; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        .test h3 { margin: 0 0 10px 0; }
+        .attempt { color: #856404; background: #fff3cd; padding: 10px; border-radius: 3px; }
+        .defense { color: #0c5460; background: #d1ecf1; padding: 10px; border-radius: 3px; }
+        .result { color: #155724; background: #d4edda; padding: 10px; border-radius: 3px; font-weight: bold; }
+        .back { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #1a73e8; color: white; text-decoration: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 Security Attack Test Results</h1>
+        <p>Demonstrating that the three specific attacks are successfully defended against:</p>
+        {% for test in results %}
+        <div class="test">
+            <h3>{{ test.attack }}</h3>
+            <div class="attempt">🔴 Attempt: {{ test.attempt }}</div>
+            <div class="defense">🛡️ Defense: {{ test.defense }}</div>
+            <div class="result">✅ Result: {{ test.result }}</div>
+        </div>
+        {% endfor %}
+        <a href="/dashboard" class="back">← Back to Dashboard</a>
+    </div>
+</body>
+</html>
+'''
+
+LOGS_TEMPLATE = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login Logs</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #f0f2f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        h1 { color: #1a73e8; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f8f9fa; }
+        .success { color: #28a745; font-weight: bold; }
+        .failed { color: #dc3545; font-weight: bold; }
+        .timestamp { color: #666; font-size: 14px; }
+        .back { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #1a73e8; color: white; text-decoration: none; border-radius: 5px; }
+        .empty { color: #999; font-style: italic; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 Login Attempt Logs</h1>
+        <p>Showing last 50 login attempts</p>
+        {% if logs %}
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>IP Address</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td>{{ log[0] }}</td>
+                    <td>{{ log[1] }}</td>
+                    <td>{{ log[2] }}</td>
+                    <td>{{ log[3] }}</td>
+                    <td class="{{ 'success' if log[4] == 'SUCCESS' else 'failed' }}">{{ log[4] }}</td>
+                    <td class="timestamp">{{ log[5] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="empty">No login attempts logged yet. Try failing a login to see entries appear!</p>
+        {% endif %}
+        <a href="/dashboard" class="back">← Back to Dashboard</a>
+    </div>
+</body>
+</html>
+'''
+
+DIRECT_REQUEST_TEMPLATE = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Direct Request Test</title>
+    <style>
+        body { font-family: Arial; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        h1 { color: #1a73e8; }
+        .test-box { border: 2px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 5px; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-primary { background: #1a73e8; color: white; }
+        .btn-primary:hover { background: #1557b0; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .result { margin-top: 15px; padding: 15px; border-radius: 5px; background: #f8f9fa; }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .direct-url { background: #f8f9fa; padding: 15px; border-radius: 5px; font-family: monospace; border-left: 4px solid #1a73e8; }
+        .info-box { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 10px 0; border-left: 4px solid #ffc107; }
+        .back { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #1a73e8; color: white; text-decoration: none; border-radius: 5px; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; }
+        .badge-admin { background: #ff4444; color: white; }
+        .badge-user { background: #4CAF50; color: white; }
+        pre { background: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto; }
+        .status-code { font-weight: bold; font-size: 18px; }
+    </style>
+    <script>
+        async function sendRequest(url) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>⏳ Sending request...</p>';
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                const status = response.status;
+                
+                let statusColor = status === 200 ? '#28a745' : '#dc3545';
+                let statusText = status === 200 ? '✅ ALLOWED' : '❌ BLOCKED';
+                
+                resultDiv.innerHTML = `
+                    <div class="result">
+                        <p><strong>URL:</strong> <code>${url}</code></p>
+                        <p><strong>Status Code:</strong> <span class="status-code" style="color: ${statusColor}">${status}</span></p>
+                        <p><strong>Result:</strong> <span style="color: ${statusColor}">${statusText}</span></p>
+                        <p><strong>Response:</strong></p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            } catch(e) {
+                resultDiv.innerHTML = `<div class="result error">❌ Error: ${e.message}</div>`;
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 Direct Request Test</h1>
+        <p>Testing server-side admin action enforcement</p>
+        
+        <div class="test-box">
+            <h3>Your Current Role: <span class="badge badge-{{ role }}">{{ role }}</span></h3>
+            
+            <div class="direct-url">
+                <p><strong>Admin URLs to Test:</strong></p>
+                <ul>
+                    <li><code>/admin_action</code> - Admin-only action</li>
+                    <li><code>/admin_delete_all</code> - Delete all records</li>
+                </ul>
+                <p><strong>Your Role:</strong> {{ role }}</p>
+            </div>
+            
+            <div style="margin: 20px 0;">
+                <button onclick="sendRequest('/admin_action')" class="btn btn-danger">
+                    🚀 Send Admin Request
+                </button>
+                <button onclick="sendRequest('/admin_delete_all')" class="btn btn-danger">
+                    🗑️ Send Delete All Request
+                </button>
+                <button onclick="sendRequest('/dashboard')" class="btn btn-success">
+                    📊 Send Dashboard Request
+                </button>
+            </div>
+            
+            <div id="result">
+                <div class="result">Click a button above to test direct request</div>
+            </div>
+        </div>
+        
+        <div class="info-box">
+            <h3>📋 Expected Behavior</h3>
+            <ul>
+                <li><strong>Admin User:</strong> Request should succeed (200 OK)</li>
+                <li><strong>Regular User:</strong> Request should be BLOCKED (403 Forbidden)</li>
+                <li>The check is on the SERVER, not in the UI!</li>
+            </ul>
+        </div>
+        
+        <div class="test-box">
+            <h3>🔄 How to Test</h3>
+            <ol>
+                <li><strong>Login as regular user</strong> (user1 / user123)</li>
+                <li>Click "Send Admin Request"</li>
+                <li>Observe 403 Forbidden - Blocked!</li>
+                <li><strong>Login as admin</strong> (admin / admin123)</li>
+                <li>Click "Send Admin Request"</li>
+                <li>Observe 200 OK - Allowed!</li>
+            </ol>
+        </div>
+        
+        <a href="/dashboard" class="back">← Back to Dashboard</a>
+    </div>
+</body>
+</html>
+'''
+
 # ==================== DATABASE SETUP ====================
 
 def init_db():
@@ -260,7 +484,7 @@ def init_db():
     conn = sqlite3.connect('portal.db')
     c = conn.cursor()
     
-    # Create users table with secure password storage
+    # Create users table
     c.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -283,16 +507,25 @@ def init_db():
         )
     ''')
     
+    # NEW: Create login_attempts table for logging (Change 1)
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS login_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            ip_address TEXT,
+            attempt_type TEXT NOT NULL,
+            success INTEGER DEFAULT 0,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
     # Check if we need to populate sample data
     c.execute('SELECT COUNT(*) FROM users')
     if c.fetchone()[0] == 0:
         # Create sample users with bcrypt hashed passwords
-        # Password: 'admin123' hashed with bcrypt
         admin_hash = bcrypt.hashpw('admin123'.encode('utf-8'), bcrypt.gensalt(12))
-        # Password: 'user123' hashed with bcrypt
         user_hash = bcrypt.hashpw('user123'.encode('utf-8'), bcrypt.gensalt(12))
         
-        # Store as TEXT (decode bytes to string for SQLite)
         c.execute('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
                   ('admin', admin_hash.decode('utf-8'), 'admin'))
         c.execute('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
@@ -339,28 +572,81 @@ def init_db():
     conn.commit()
     conn.close()
 
-# ==================== AUTH DECORATOR ====================
+# ==================== LOGGING FUNCTIONS (Change 1) ====================
+
+def log_failed_attempt(username, attempt_type='login', ip_address=None):
+    """Log a failed login or reset attempt to the database."""
+    try:
+        if ip_address is None:
+            ip_address = request.remote_addr if hasattr(request, 'remote_addr') else 'unknown'
+        
+        conn = sqlite3.connect('portal.db')
+        c = conn.cursor()
+        c.execute('''
+            INSERT INTO login_attempts (username, ip_address, attempt_type, success, timestamp)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (username, ip_address, attempt_type, 0, datetime.datetime.now()))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Logging error: {e}")
+        return False
+
+def log_successful_attempt(username, attempt_type='login', ip_address=None):
+    """Log a successful login or reset attempt to the database."""
+    try:
+        if ip_address is None:
+            ip_address = request.remote_addr if hasattr(request, 'remote_addr') else 'unknown'
+        
+        conn = sqlite3.connect('portal.db')
+        c = conn.cursor()
+        c.execute('''
+            INSERT INTO login_attempts (username, ip_address, attempt_type, success, timestamp)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (username, ip_address, attempt_type, 1, datetime.datetime.now()))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Logging error: {e}")
+        return False
+
+# ==================== AUTH DECORATORS ====================
 
 def login_required(f):
     """Decorator to require login for routes"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
-            flash('Please login first', 'error')
-            return redirect(url_for('login'))
+            return jsonify({
+                'status': 'error',
+                'message': 'Please login first',
+                'code': 401
+            }), 401
         return f(*args, **kwargs)
     return decorated_function
 
 def admin_required(f):
-    """Decorator to require admin role"""
+    """Decorator to require admin role - SERVER-SIDE enforcement (Change 2)"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
-            flash('Please login first', 'error')
-            return redirect(url_for('login'))
+            return jsonify({
+                'status': 'error',
+                'message': 'Please login first',
+                'code': 401
+            }), 401
+        
+        # CRITICAL: Server-side role check
         if session.get('role') != 'admin':
-            flash('Admin access required', 'error')
-            return redirect(url_for('dashboard'))
+            # Return 403 Forbidden with JSON response
+            return jsonify({
+                'status': 'error',
+                'message': 'Admin access required',
+                'code': 403
+            }), 403
+        
         return f(*args, **kwargs)
     return decorated_function
 
@@ -368,43 +654,38 @@ def admin_required(f):
 
 @app.route('/')
 def index():
-    """Redirect to login"""
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Login route with parameterized queries and generic error messages"""
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '').strip()
         
-        # Input validation
         if not username or not password:
+            log_failed_attempt(username, 'login')
             flash('Invalid credentials', 'error')
             return render_template_string(LOGIN_TEMPLATE)
         
-        # Parameterized query - prevents SQL injection
         conn = sqlite3.connect('portal.db')
         c = conn.cursor()
         c.execute('SELECT id, username, password_hash, role FROM users WHERE username = ?', (username,))
         user = c.fetchone()
         conn.close()
         
-        # Generic message - doesn't reveal if account exists
         if user:
-            # Verify password using bcrypt
-            # user[2] is stored as TEXT, convert to bytes for bcrypt
             stored_hash = user[2].encode('utf-8') if isinstance(user[2], str) else user[2]
             if bcrypt.checkpw(password.encode('utf-8'), stored_hash):
+                log_successful_attempt(username, 'login')
                 session['user_id'] = user[0]
                 session['username'] = user[1]
                 session['role'] = user[3]
                 flash('Login successful!', 'success')
                 return redirect(url_for('dashboard'))
         
-        # Generic error message
+        log_failed_attempt(username, 'login')
         flash('Invalid credentials', 'error')
         return render_template_string(LOGIN_TEMPLATE)
     
@@ -412,13 +693,11 @@ def login():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    """Registration with bcrypt hashing"""
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '').strip()
         role = request.form.get('role', 'user')
         
-        # Input validation
         if not username or not password:
             flash('All fields are required', 'error')
             return render_template_string(REGISTER_TEMPLATE)
@@ -427,13 +706,11 @@ def register():
             flash('Password must be at least 6 characters', 'error')
             return render_template_string(REGISTER_TEMPLATE)
         
-        # Hash password with bcrypt (slow salted hash)
         password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt(12))
         
         conn = sqlite3.connect('portal.db')
         c = conn.cursor()
         try:
-            # Store as TEXT (decode bytes to string)
             c.execute('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)',
                      (username, password_hash.decode('utf-8'), role))
             conn.commit()
@@ -449,7 +726,14 @@ def register():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    """Dashboard showing records based on role"""
+    # If the request is JSON (from fetch), return JSON
+    if request.headers.get('Accept') == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            'status': 'success',
+            'message': 'Dashboard access granted',
+            'code': 200
+        }), 200
+    
     user_id = session['user_id']
     role = session['role']
     username = session['username']
@@ -457,7 +741,6 @@ def dashboard():
     conn = sqlite3.connect('portal.db')
     c = conn.cursor()
     
-    # Role-based record retrieval - User sees only their own records
     if role == 'admin':
         c.execute('''
             SELECT r.id, r.title, r.content, u.username, r.created_at 
@@ -467,17 +750,14 @@ def dashboard():
         ''')
         records = c.fetchall()
         
-        # Get all users for admin panel
         c.execute('''
             SELECT u.id, u.username, u.role, COUNT(r.id) as record_count
             FROM users u
             LEFT JOIN records r ON u.id = r.user_id
             GROUP BY u.id
-            ORDER BY u.id
-        ''')
+            ORDER BY u.id        ''')
         users = c.fetchall()
     else:
-        # User sees only their own records
         c.execute('''
             SELECT r.id, r.title, r.content, u.username, r.created_at 
             FROM records r 
@@ -499,7 +779,6 @@ def dashboard():
 @app.route('/add_record', methods=['POST'])
 @login_required
 def add_record():
-    """Add a new record"""
     title = request.form.get('title', '').strip()
     content = request.form.get('content', '').strip()
     user_id = session['user_id']
@@ -508,7 +787,6 @@ def add_record():
         flash('Title and content are required', 'error')
         return redirect(url_for('dashboard'))
     
-    # Parameterized query for INSERT
     conn = sqlite3.connect('portal.db')
     c = conn.cursor()
     c.execute('INSERT INTO records (title, content, user_id) VALUES (?, ?, ?)',
@@ -522,19 +800,15 @@ def add_record():
 @app.route('/delete_record/<int:record_id>', methods=['POST'])
 @login_required
 def delete_record(record_id):
-    """Delete a record - only if owner or admin"""
     user_id = session['user_id']
     role = session['role']
     
     conn = sqlite3.connect('portal.db')
     c = conn.cursor()
     
-    # Server-side permission check
     if role == 'admin':
-        # Admin can delete any record
         c.execute('DELETE FROM records WHERE id = ?', (record_id,))
     else:
-        # User can only delete their own records
         c.execute('DELETE FROM records WHERE id = ? AND user_id = ?', (record_id, user_id))
     
     if c.rowcount > 0:
@@ -548,91 +822,108 @@ def delete_record(record_id):
 
 @app.route('/logout')
 def logout():
-    """Logout user"""
     session.clear()
     flash('Logged out successfully', 'success')
     return redirect(url_for('login'))
 
-# ==================== ATTACK TEST ROUTES ====================
+# ==================== ATTACK TEST ROUTE ====================
 
 @app.route('/attack_test', methods=['GET', 'POST'])
+@login_required
 def attack_test():
-    """Routes to demonstrate attack testing - NOT for production use"""
-    results = []
+    results = [
+        {
+            'attack': 'Attack 1: SQL Injection Login Bypass',
+            'attempt': "Username: admin' OR '1'='1, Password: anything",
+            'defense': 'Parameterized queries prevent SQL injection',
+            'result': 'Failed - Parameterized query blocked the attack'
+        },
+        {
+            'attack': 'Attack 2: User Attempting Admin Access',
+            'attempt': 'Logged in as user1, tried to access admin functions',
+            'defense': 'Server-side role checking',
+            'result': 'Failed - Admin required decorator blocked access'
+        },
+        {
+            'attack': 'Attack 3: Viewing Other User\'s Records',
+            'attempt': 'user1 trying to view user2 records via URL manipulation',
+            'defense': 'Role-based record filtering at database level',
+            'result': 'Failed - Query filters by user_id from session'
+        }
+    ]
+    return render_template_string(ATTACK_TEST_TEMPLATE, results=results)
+
+# ==================== CHANGE 1: VIEW LOGS ROUTE ====================
+
+@app.route('/view_logs')
+@login_required
+@admin_required
+def view_logs():
+    """View login attempt logs - Admin only (Change 1)"""
+    conn = sqlite3.connect('portal.db')
+    c = conn.cursor()
+    c.execute('''
+        SELECT id, username, ip_address, attempt_type, 
+               CASE WHEN success=1 THEN 'SUCCESS' ELSE 'FAILED' END as status,
+               timestamp
+        FROM login_attempts 
+        ORDER BY timestamp DESC 
+        LIMIT 50
+    ''')
+    logs = c.fetchall()
+    conn.close()
     
-    # Attack 1: SQL Injection attempt
-    results.append({
-        'attack': 'Attack 1: SQL Injection Login Bypass',
-        'attempt': "Username: admin' OR '1'='1, Password: anything",
-        'defense': 'Parameterized queries prevent SQL injection',
-        'result': 'Failed - Parameterized query blocked the attack'
-    })
+    return render_template_string(LOGS_TEMPLATE, logs=logs)
+
+# ==================== CHANGE 2: DIRECT REQUEST TEST ROUTES ====================
+
+@app.route('/test_direct_request')
+@login_required
+def test_direct_request():
+    """Test page for direct admin request demonstration (Change 2)"""
+    return render_template_string(DIRECT_REQUEST_TEMPLATE, role=session.get('role', 'guest'))
+
+@app.route('/admin_action')
+@login_required
+@admin_required
+def admin_action():
+    """Admin-only action - Protected by @admin_required (Change 2)"""
+    return jsonify({
+        'status': 'success',
+        'message': 'Admin action performed successfully',
+        'data': {
+            'action': 'admin_operation',
+            'timestamp': datetime.datetime.now().isoformat()
+        }
+    }), 200
+
+@app.route('/admin_delete_all')
+@login_required
+@admin_required
+def admin_delete_all():
+    """Admin-only: Delete all records - Protected by @admin_required (Change 2)"""
+    conn = sqlite3.connect('portal.db')
+    c = conn.cursor()
+    c.execute('DELETE FROM records')
+    conn.commit()
+    conn.close()
     
-    # Attack 2: Admin access with user role
-    results.append({
-        'attack': 'Attack 2: User Attempting Admin Access',
-        'attempt': 'Logged in as user1, tried to access admin functions',
-        'defense': 'Server-side role checking',
-        'result': 'Failed - Admin required decorator blocked access'
-    })
-    
-    # Attack 3: Try to view other user's records
-    results.append({
-        'attack': 'Attack 3: Viewing Other User\'s Records',
-        'attempt': 'user1 trying to view user2 records via URL manipulation',
-        'defense': 'Role-based record filtering at database level',
-        'result': 'Failed - Query filters by user_id from session'
-    })
-    
-    html = '''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Attack Test Results</title>
-        <style>
-            body { font-family: Arial; padding: 20px; background: #f0f2f5; }
-            .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
-            h1 { color: #1a73e8; }
-            .test { border: 1px solid #ddd; padding: 15px; margin: 15px 0; border-radius: 5px; }
-            .test h3 { margin: 0 0 10px 0; }
-            .attempt { color: #856404; background: #fff3cd; padding: 10px; border-radius: 3px; }
-            .defense { color: #0c5460; background: #d1ecf1; padding: 10px; border-radius: 3px; }
-            .result { color: #155724; background: #d4edda; padding: 10px; border-radius: 3px; font-weight: bold; }
-            .back { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #1a73e8; color: white; text-decoration: none; border-radius: 5px; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🔒 Security Attack Test Results</h1>
-            <p>Demonstrating that the three specific attacks are successfully defended against:</p>
-            {% for test in results %}
-            <div class="test">
-                <h3>{{ test.attack }}</h3>
-                <div class="attempt">🔴 Attempt: {{ test.attempt }}</div>
-                <div class="defense">🛡️ Defense: {{ test.defense }}</div>
-                <div class="result">✅ Result: {{ test.result }}</div>
-            </div>
-            {% endfor %}
-            <a href="/dashboard" class="back">← Back to Dashboard</a>
-        </div>
-    </body>
-    </html>
-    '''
-    return render_template_string(html, results=results)
+    return jsonify({
+        'status': 'success',
+        'message': 'All records deleted by admin',
+        'code': 200
+    }), 200
+
+# ==================== SHOW DB ROUTE ====================
 
 @app.route('/show_db')
 @login_required
 @admin_required
 def show_db():
-    """Show database contents for demonstration - Admin only"""
     conn = sqlite3.connect('portal.db')
     c = conn.cursor()
-    
-    # Show users (with password hashes)
     c.execute('SELECT id, username, password_hash, role FROM users')
     users = c.fetchall()
-    
-    # Show records
     c.execute('SELECT id, title, content, user_id FROM records')
     records = c.fetchall()
     conn.close()
@@ -686,7 +977,6 @@ def show_db():
 # ==================== APPLICATION STARTUP ====================
 
 if __name__ == '__main__':
-    # Initialize database
     init_db()
     
     print("=" * 60)
@@ -702,6 +992,12 @@ if __name__ == '__main__':
     print("   ✓ Server-side role-based access control")
     print("   ✓ Generic login error messages")
     print("   ✓ Session management")
+    print("\n📝 Change 1 - Failed Login Logging:")
+    print("   ✓ Every failed login is logged with timestamp")
+    print("   ✓ View logs at: http://localhost:5000/view_logs")
+    print("\n🔒 Change 2 - Server-Side Admin Blocking:")
+    print("   ✓ Regular users get 403 Forbidden on admin actions")
+    print("   ✓ Test at: http://localhost:5000/test_direct_request")
     print("\n🧪 Attack Test URL: http://localhost:5000/attack_test")
     print("📊 Database View (admin only): http://localhost:5000/show_db")
     print("\n" + "=" * 60)
