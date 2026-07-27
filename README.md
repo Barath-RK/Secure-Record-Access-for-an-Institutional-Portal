@@ -67,6 +67,8 @@
 
 
 Video Link - https://drive.google.com/file/d/1jbFxKVdZ3xwww5oDmx9zvDjrlR87uu-J/view?usp=drivesdk
+
+Video Link Updated - https://drive.google.com/file/d/1BEFGcPwhvLuvq0MgmZkGFxZ6iI9gmpe-/view?usp=sharing
 ### 🎯 Core Purpose
 
 The application serves as a **practical demonstration** of:
